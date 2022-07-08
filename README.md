@@ -1,3 +1,3 @@
-# Adaptive-Toekn-Sampling-Flax
+# Adaptive-Token-Sampling-Flax
 
 (WIP)
