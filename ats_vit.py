@@ -33,10 +33,10 @@ def torch_gather(x, indices, gather_axis):
     # [[0,0,0], [0,0,10], [0,0,20], [0,1,0], [0,1,10], [0,1,20], [0,2,0], [0,2,10], [0,2,20],
     #  [1,0,0], [1,0,10], [1,0,20], [1,1,0], [1,1,10], [1,1,20], [1,2,0], [1,2,10], [1,2,20]]
 
-    indices = jnp.int64(indices)
+    indices = tf.cast(indices, tf.int64)
     # create a tensor containing indices of each element
-    all_indices = jnp.where(np.ndarray.fill(indices.shape))
-    gather_locations = jnp.reshape(indices, [indices.shape.num_elements()])
+    all_indices = tf.where(tf.fill(indices.shape, True))
+    gather_locations = tf.reshape(indices, [indices.shape.num_elements()])
 
     # splice in our pytorch style index at the correct axis
     gather_indices = []
@@ -46,16 +46,16 @@ def torch_gather(x, indices, gather_axis):
         else:
             gather_indices.append(all_indices[:, axis])
 
-    gather_indices = jnp.stack(gather_indices, axis=-1)
+    gather_indices = tf.stack(gather_indices, axis=-1)
     gathered = tf.gather_nd(x, gather_indices)
-    reshaped = jnp.reshape(gathered, indices.shape)
+    reshaped = tf.reshape(gathered, indices.shape)
     return reshaped
 
 def batched_index_select(values, indices, dim = 1):
     value_dims = values.shape[(dim + 1):]
     values_shape, indices_shape = map(lambda t: list(t.shape), (values, indices))
     indices = indices[(..., *((None,) * len(value_dims)))]
-    indices = jnp.tile(indices, reps=[1] * len(indices_shape) + [*value_dims])
+    indices = tf.tile(indices, multiples=[1] * len(indices_shape) + [*value_dims])
     value_expand_len = len(indices_shape) - (dim + 1)
     values = values[(*((slice(None),) * dim), *((None,) * value_expand_len), ...)]
 
@@ -65,7 +65,7 @@ def batched_index_select(values, indices, dim = 1):
     dim += value_expand_len
 
     values = torch_gather(values, indices, dim)
-    return values
+    return jnp.array(values)
 
 def jax_unstack(x, axis = 0):
     return jnp.moveaxis(x, axis, 0)
@@ -99,7 +99,7 @@ class AdaptiveTokenSampling(nn.Module):
 
         # mask out pseudo logits for gumbel-max sampling
         mask_without_cls = mask[:, 1:]
-        mask_value = -np.finfo(attn).max / 2
+        mask_value = -jnp.finfo(attn).max / 2
         pseudo_logits = jnp.where(~mask_without_cls, mask_value, pseudo_logits)
 
         # expand k times, k being the adaptive sampling number
